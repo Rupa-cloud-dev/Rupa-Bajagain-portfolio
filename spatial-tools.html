@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spatial Tools</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Leaflet Draw -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+  <!-- Turf.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #121212;
+      color: white;
+    }
+    .buttons {
+      padding: 20px;
+      text-align: center;
+    }
+    .tool-btn {
+      padding: 10px 20px;
+      background: #ff004f;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    .tool-btn.active {
+      background: #0077b5;
+    }
+    #map {
+      height: 85vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="buttons">
+    <button class="tool-btn" onclick="selectTool('distance')">Distance</button>
+    <button class="tool-btn" onclick="selectTool('area')">Area</button>
+    <button class="tool-btn" onclick="selectTool('buffer')">Buffer</button>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    let map = L.map('map').setView([27.64, 85.57], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let activeTool = null;
+    let points = [];
+    let bufferLayer;
+    const drawnItems = new L.FeatureGroup().addTo(map);
+
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polygon: true,
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        marker: false
+      },
+      edit: {
+        featureGroup: drawnItems
+      }
+    });
+
+    map.on('draw:created', function (e) {
+      if (activeTool === 'area') {
+        drawnItems.clearLayers();
+        const layer = e.layer;
+        drawnItems.addLayer(layer);
+        const coords = layer.getLatLngs()[0].map(p => [p.lng, p.lat]);
+        coords.push(coords[0]);
+        const poly = turf.polygon([coords]);
+        const area = turf.area(poly);
+        alert("Area: " + (area / 10000).toFixed(2) + " hectares");
+      }
+    });
+
+    map.on('click', function (e) {
+      if (activeTool === 'distance') {
+        points.push([e.latlng.lng, e.latlng.lat]);
+        L.marker(e.latlng).addTo(map);
+        if (points.length === 2) {
+          const from = turf.point(points[0]);
+          const to = turf.point(points[1]);
+          const distance = turf.distance(from, to, { units: 'kilometers' });
+          alert("Distance: " + distance.toFixed(2) + " km");
+          points = [];
+        }
+      }
+    });
+
+    function selectTool(tool) {
+      activeTool = tool;
+      points = [];
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(tool)) {
+          btn.classList.add('active');
+        }
+      });
+
+      if (bufferLayer) {
+        map.removeLayer(bufferLayer);
+      }
+
+      if (tool === 'area') {
+        map.addControl(drawControl);
+        alert("Draw a polygon on the map to calculate area.");
+      } else {
+        map.removeControl(drawControl);
+        drawnItems.clearLayers();
+      }
+
+      if (tool === 'buffer') {
+        const center = turf.point([85.57, 27.64]);
+        const buffered = turf.buffer(center, 0.5, { units: 'kilometers' });
+        bufferLayer = L.geoJSON(buffered, { color: 'red' }).addTo(map);
+        alert("500m buffer around Dhulikhel created.");
+      }
+
+      if (tool === 'distance') {
+        alert("Click two points to measure distance.");
+      }
+    }
+  </script>
+
+</body>
+</html>
+unpkg.com
