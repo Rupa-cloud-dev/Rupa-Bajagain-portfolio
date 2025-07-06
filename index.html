@@ -1,6 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><!-- Turf.js -->
+<!-- Turf.js -->
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<!-- Add inside any section (like "My Project") -->
+
+
+
+<!-- Leaflet Draw -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+<!-- Optional Styling -->
+<style>
+  .tool-btn {
+    padding: 12px 25px;
+    font-size: 16px;
+    background-color: #ff004f;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    margin-right: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .tool-btn:hover {
+    background-color: #d6003e;
+  }
+  .tool-btn.active {
+    background-color: #0077b5;
+  }
+</style>
+
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>portfolio website</title>
@@ -9,6 +41,8 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
      <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+     
+
 <body>
     <div id="header">
         <div class="container">
@@ -97,7 +131,7 @@
             <h1 class="sub-title">My Work</h1>
             <div class="Work-list">
                 <div class="work">
-                    <img src="field.jpeg">
+                    <img src="../photos/field.jpeg">
                     <div class="layer">
                         <h3>Field survey</h3>
                         <p>A control point is eastbalished in the ground with the theodolite 
@@ -106,7 +140,7 @@
                     </div>
                 </div>
                 <div class="work">
-                    <img src="gg.png">
+                    <img src="../photos/gg.png">
                     <div class="layer">
                         <h3>GIS</h3>
                         <p>GIS (Geographic Information System) involves capturing, storing,
@@ -117,7 +151,7 @@
                     </div>
                 </div>
                 <div class="work">
-                    <img src="map.jpeg">
+                    <img src="../photos/map.jpeg">
                     <div class="layer">
                         <h3>Cartography</h3>
                         <p>Cartography is the art, science, and technology of making maps.It involves 
@@ -133,8 +167,8 @@
     <!-----project-->
 </div>
 
-
- <div class = "container" style = "margin-bottom: 50px; margin-top: -50px;">
+<section id ="my project" class = "forthSection">
+ <div class = "container">
      <h2 class = "pro" style ="font-size: 55px;font-family: '">My Project</h2>
      <div class ="project-list">
          <div>
@@ -155,7 +189,7 @@
                  <a  href ="poster of urbanization using the python plugin.png".png.png">Learn more</a>
                  </div>
      </div>
-    
+    </section>
 </div>
     <!---contact-->
     <section id="contact">
@@ -185,13 +219,30 @@
                     
             </div>
         </div>
-        
-    </section>
 
-    <div id="mapping"style = "height:100vh; background-color:black; margin-top: 30px; margin-bottom:10px; margin-left:100px; "><h1 id="chnage"style = "font-size 30px;" >My location </h1>
-                    <div id="map"style="height:80vh; width:50%;border:2px solid black; border-radius:10px;"></div> </div>
-        </div>
+        </section>
+
+<!-- Open Spatial Tool Button -->
+<div style="text-align: center; padding: 30px;">
+  <a href="spatial-tools.html" target="_blank" class="tool-btn">Open Spatial Tool with leaflet map</a>
+</div>
+
+</body>
+</html>
+
+    
+    
+
   
+  </div>
+
+  
+
+
+    
+  
+
+   
 
     <script>
         var tablinks = document.getElementsByClassName("tab-links");
@@ -210,26 +261,116 @@
 
       
     </script>
+    <script>
+let map;
+let activeTool = null;
+let points = [];
+let drawnItems;
+let drawControl;
+let bufferLayer;
 
-    <script > 
-   
-        window.onload = function() {
-  var map = L.map('map');
+window.onload = function () {
+  map = L.map('map').setView([27.64, 85.57], 13);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  L.marker([27.64, 85.57]).addTo(map)
-    .bindPopup('Residential Address: Dhulikhel, Kavre');
+  // Default marker
+  L.marker([27.64, 85.57]).addTo(map).bindPopup('Dhulikhel, Kavre').openPopup();
 
-  var bounds = L.latLngBounds([[27.6, 85.5]]);
-  map.fitBounds(bounds);
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  drawControl = new L.Control.Draw({
+    draw: {
+      polygon: true,
+      polyline: false,
+      rectangle: false,
+      circle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+
+  map.on('draw:created', function (e) {
+    if (activeTool === 'area') {
+      drawnItems.clearLayers();
+      const layer = e.layer;
+      drawnItems.addLayer(layer);
+
+      const latlngs = layer.getLatLngs()[0].map(p => [p.lng, p.lat]);
+      latlngs.push(latlngs[0]);
+      const polygon = turf.polygon([latlngs]);
+      const area = turf.area(polygon);
+      alert("Area: " + (area / 10000).toFixed(2) + " hectares");
+    }
+  });
+
+  map.on('click', function (e) {
+    if (activeTool === 'distance') {
+      points.push([e.latlng.lng, e.latlng.lat]);
+      L.marker(e.latlng).addTo(map);
+
+      if (points.length === 2) {
+        const from = turf.point(points[0]);
+        const to = turf.point(points[1]);
+        const distance = turf.distance(from, to, { units: 'kilometers' });
+        alert("Distance: " + distance.toFixed(2) + " km");
+        points = [];
+      }
+    }
+  });
 };
 
-    
+function selectTool(tool) {
+  activeTool = tool;
+  points = [];
 
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    if (btn.textContent.toLowerCase().includes(tool)) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  if (bufferLayer) {
+    map.removeLayer(bufferLayer);
+    bufferLayer = null;
+  }
+
+  if (tool === 'area') {
+    map.addControl(drawControl);
+    alert("Draw a polygon on the map to calculate area.");
+  } else {
+    map.removeControl(drawControl);
+    drawnItems.clearLayers();
+  }
+
+  if (tool === 'buffer') {
+    const center = turf.point([85.57, 27.64]);
+    const buffered = turf.buffer(center, 0.5, { units: 'kilometers' });
+    bufferLayer = L.geoJSON(buffered, { color: 'red' }).addTo(map);
+    alert("500m buffer created around Dhulikhel.");
+  }
+
+  if (tool === 'distance') {
+    alert("Click two points on the map to calculate distance.");
+  }
+}
+</script>
+
+
+    
+   
+ 
     </script>
     
 </body>
 </html>
+cdn.jsdelivr.net
+
